@@ -11,6 +11,7 @@
 # under the License.
 
 import os
+from unittest import mock
 
 from oslotest import base
 from requests import HTTPError
@@ -38,7 +39,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture = self.useFixture(fixture.Config(self.conf))
 
     def test_no_sources_default(self):
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             open_source.side_effect = AssertionError('should not be called')
@@ -48,7 +49,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=[],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             open_source.side_effect = AssertionError('should not be called')
@@ -58,7 +59,7 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=['missing_source'],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             self.conf([])
@@ -68,14 +69,14 @@ class TestProcessingSources(base.BaseTestCase):
         self.conf_fixture.config(
             config_source=['source1', 'source2'],
         )
-        with base.mock.patch.object(
+        with mock.patch.object(
             self.conf, '_open_source_from_opt_group'
         ) as open_source:
             self.conf([])
             open_source.assert_has_calls(
                 [
-                    base.mock.call('source1'),
-                    base.mock.call('source2'),
+                    mock.call('source1'),
+                    mock.call('source2'),
                 ]
             )
 
@@ -288,7 +289,7 @@ class URISourceTestCase(base.BaseTestCase):
             "bar", source.get("DEFAULT", "foo", cfg.StrOpt("foo"))[0]
         )
 
-    @base.mock.patch(
+    @mock.patch(
         "oslo_config.sources._uri.URIConfigurationSource._fetch_uri",
         side_effect=opts_to_ini,
     )
@@ -326,7 +327,7 @@ class URISourceTestCase(base.BaseTestCase):
                     v, self.conf[g][o] if g != "DEFAULT" else self.conf[o]
                 )
 
-    @base.mock.patch(
+    @mock.patch(
         "oslo_config.sources._uri.URIConfigurationSource._fetch_uri",
         side_effect=opts_to_ini,
     )

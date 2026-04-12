@@ -131,7 +131,9 @@ class BaseTestCase(base.BaseTestCase):
 
         self.tempdirs = []
 
-    def create_tempfiles(self, files, ext='.conf'):
+    # TODO(stephenfin): Can we drop this in favour of the superclass
+    # definition?
+    def create_tempfiles(self, files, ext='.conf', default_encoding='utf-8'):
         tempfiles = []
         for basename, contents in files:
             if not os.path.isabs(basename):
@@ -1304,6 +1306,12 @@ class CliOptsTestCase(BaseTestCase):
             ),
         ),
     ]
+
+    opt_class: Any
+    default: Any
+    cli_args: list[str]
+    value: Any
+    deps: tuple[str | None, str | None]
 
     def test_cli(self):
         self.conf.register_cli_opt(
@@ -2862,18 +2870,18 @@ class ConfigFileMutateTestCase(BaseTestCase):
         self.assertEqual('new_boo', self.conf.group.boo)
 
     def test_warn_immutability(self):
-        self.log_fixture = self.useFixture(fixtures.FakeLogger())
+        self.fake_logger = self.useFixture(fixtures.FakeLogger())
         self.conf.register_cli_opt(cfg.StrOpt('foo', mutable=True))
         self.conf.register_cli_opt(cfg.StrOpt('boo'), group=self.my_group)
         self._test_conf_files_mutate()
         self.assertEqual(
             "Ignoring change to immutable option group.boo\n"
             "Option DEFAULT.foo changed from [old_foo] to [new_foo]\n",
-            self.log_fixture.output,
+            self.fake_logger.output,
         )
 
     def test_diff(self):
-        self.log_fixture = self.useFixture(fixtures.FakeLogger())
+        self.fake_logger = self.useFixture(fixtures.FakeLogger())
         self.conf.register_cli_opt(cfg.StrOpt('imm'))
         self.conf.register_cli_opt(cfg.StrOpt('blank', mutable=True))
         self.conf.register_cli_opt(cfg.StrOpt('foo', mutable=True))
@@ -2892,7 +2900,7 @@ class ConfigFileMutateTestCase(BaseTestCase):
             "Option DEFAULT.foo changed from [old_foo] to [new_foo]\n"
             "Option group.boo changed from [old_boo] to [new_boo]\n"
         )
-        self.assertEqual(expected, self.log_fixture.output)
+        self.assertEqual(expected, self.fake_logger.output)
 
     def test_hooks_invoked_once(self):
         fresh: dict[str, Any] = {}
@@ -3215,6 +3223,14 @@ class OptNameSeparatorTestCase(BaseTestCase):
             ),
         ),
     ]
+
+    opt_name: str
+    opt_dest: str
+    broken_opt_dest: str
+    cf_name: str
+    broken_cf_name: str
+    cli_name: str
+    hyphen: bool
 
     def test_attribute_and_key_name(self):
         self.conf.register_opt(cfg.StrOpt(self.opt_name))
@@ -5613,7 +5629,7 @@ class SectionsTestCase(BaseTestCase):
 class DeprecationWarningTestBase(BaseTestCase):
     def setUp(self):
         super().setUp()
-        self.log_fixture = self.useFixture(fixtures.FakeLogger())
+        self.fake_logger = self.useFixture(fixtures.FakeLogger())
         self._parser_class = cfg.ConfigParser
 
 
@@ -5627,6 +5643,9 @@ class DeprecationWarningTestScenarios(DeprecationWarningTestBase):
         ('other-deprecated', dict(deprecated=True, group='other')),
         ('other-not-deprecated', dict(deprecated=False, group='other')),
     ]
+
+    deprecated: bool
+    group: str
 
     def test_deprecated_logging(self):
         self.conf.register_opt(cfg.StrOpt('foo', deprecated_name='bar'))
@@ -5664,7 +5683,7 @@ class DeprecationWarningTestScenarios(DeprecationWarningTestBase):
             )
         else:
             expected = ''
-        self.assertEqual(expected, self.log_fixture.output)
+        self.assertEqual(expected, self.fake_logger.output)
 
 
 @mock.patch(
@@ -5690,10 +5709,10 @@ class DeprecationWarningTests(DeprecationWarningTestBase):
         self.assertEqual('baz', self.conf.foo)
         self.assertEqual('baz', self.conf.other.foo)
         self.assertIn(
-            'Option "bar" from group "DEFAULT"', self.log_fixture.output
+            'Option "bar" from group "DEFAULT"', self.fake_logger.output
         )
         self.assertIn(
-            'Option "baz" from group "other"', self.log_fixture.output
+            'Option "baz" from group "other"', self.fake_logger.output
         )
 
     def test_check_deprecated(self):
@@ -5713,7 +5732,7 @@ class DeprecationWarningTests(DeprecationWarningTestBase):
             'option': current_name,
             'group': current_group,
         }
-        self.assertIn(expected + '\n', self.log_fixture.output)
+        self.assertIn(expected + '\n', self.fake_logger.output)
 
     def test_deprecated_for_removal(self):
         self.conf.register_opt(cfg.StrOpt('foo', deprecated_for_removal=True))
@@ -5730,7 +5749,7 @@ class DeprecationWarningTests(DeprecationWarningTestBase):
             'deprecated for removal.  Its value may be silently '
             'ignored in the future.\n'
         )
-        self.assertIn(expected, self.log_fixture.output)
+        self.assertIn(expected, self.fake_logger.output)
 
     def test_deprecated_for_removal_with_group(self):
         self.conf.register_group(cfg.OptGroup('other'))
@@ -5752,7 +5771,7 @@ class DeprecationWarningTests(DeprecationWarningTestBase):
             'deprecated for removal.  Its value may be silently '
             'ignored in the future.\n'
         )
-        self.assertIn(expected, self.log_fixture.output)
+        self.assertIn(expected, self.fake_logger.output)
 
     def test_deprecated_with_dest(self):
         self.conf.register_group(cfg.OptGroup('other'))
@@ -5775,7 +5794,7 @@ class DeprecationWarningTests(DeprecationWarningTestBase):
             }
             + '\n'
         )
-        self.assertIn(expected, self.log_fixture.output)
+        self.assertIn(expected, self.fake_logger.output)
 
 
 class DeprecationWarningTestsNoOsloLog(DeprecationWarningTests):

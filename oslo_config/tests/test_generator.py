@@ -1210,6 +1210,11 @@ class GeneratorTestCase(base.BaseTestCase):
         ('output_file', dict(output_file='sample.conf', stdout=False)),
     ]
 
+    stdout: bool
+    output_file: str | None
+    expected: str
+    scenarios: Any
+
     @classmethod
     def generate_scenarios(cls):
         cls.scenarios = testscenarios.multiply_scenarios(
@@ -1253,6 +1258,7 @@ class GeneratorTestCase(base.BaseTestCase):
         if self.stdout:
             stdout = self._capture_stdout()
         else:
+            assert self.output_file is not None
             output_file = self.tempdir.join(self.output_file)
             self.config(output_file=output_file)
 
@@ -1747,6 +1753,10 @@ class MachineReadableGeneratorTestCase(base.BaseTestCase):
             ),
         ),
     ]
+
+    opts: list[tuple[str, list[tuple[str | None, list[cfg.Opt]]]]]
+    expected: str
+    scenarios: Any
 
     def setUp(self):
         super().setUp()
